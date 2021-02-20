@@ -18,8 +18,8 @@ namespace ScammerBeGoneConsole
 
         public event RequestStatusHandler OnRequestCompleted;
         public event RequestStatusHandler OnRequestCreated;
-        private int SizeInBytes;
-        private int SizeInMB;
+        private double SizeInBytes;
+        private double SizeInMB;
         private long total;
         private RestClient Client;
 
@@ -28,18 +28,18 @@ namespace ScammerBeGoneConsole
         /// Request generation class, give size in mb
         /// </summary>
         /// <param name="size">request size in mb</param>
-        public RequestGenerator(int size)
+        public RequestGenerator(double size)
         {
             this.SizeInBytes = size * 1024 * 1024;
             this.SizeInMB = size;
             this.total = 0;
         }
 
-        public async Task Start(CustomStream data, string urlToPost)
+        public async Task Start(CustomStream data, int threadsize, int requestcount, string requestUrl)
         {
-            Client = new RestClient(urlToPost);
+            Client = new RestClient(requestUrl);
             Client.Timeout = -1;
-            Parallel.For(1, 100, new ParallelOptions { MaxDegreeOfParallelism = 20 }, delegate (int i) { PerformRequest(data, i); });
+            Parallel.For(1, requestcount, new ParallelOptions { MaxDegreeOfParallelism = threadsize }, delegate (int i) { PerformRequest(data, i); });
         }
 
         private void PerformRequest(CustomStream data, int index)
