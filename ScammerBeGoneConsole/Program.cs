@@ -54,11 +54,9 @@ namespace ScammerBeGoneConsole
             else
             {
                 MainConsole.WriteLine("Generating random data with size {0}", RequestSizeInMb);
-                MemoryStream data = await g.GenerateData();
+                CustomStream data = await g.GenerateData();
                 MainConsole.WriteLine("Starting request service...");
-                StreamReader reader = new StreamReader(data);
-                reader.BaseStream.Position = 0;
-                await g.Start(await reader.ReadToEndAsync(), args[0]);
+                await g.Start(data, args[0]);
             }
         }
     }
